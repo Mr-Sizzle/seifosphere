@@ -314,6 +314,17 @@ class ArchiveHandler(http.server.SimpleHTTPRequestHandler):
             deal_dir.mkdir(parents=True)
             send_json(self, {"created": safe, "path": str(deal_dir)})
 
+        # ── API: /api/delete ──────────────────────────────────────────────────
+        elif path == "/api/delete":
+            rel_path = body.get("path", "")
+            if not rel_path:
+                return send_error(self, "path required")
+            src = BASE_DIR / rel_path
+            if not src.exists():
+                return send_error(self, f"File not found: {rel_path}", 404)
+            src.unlink()
+            send_json(self, {"deleted": rel_path})
+
         # ── API: /api/rename ──────────────────────────────────────────────────
         elif path == "/api/rename":
             rel_path = body.get("path", "")

@@ -492,7 +492,85 @@
     border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: 18px;
+    position: relative;
+    transition: border-color 0.15s;
   }
+  .intake-card.selected {
+    border-color: var(--accent);
+    background: rgba(91,200,250,0.06);
+  }
+  .intake-checkbox {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--accent);
+  }
+
+  /* Bulk action bar */
+  .bulk-bar {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: rgba(91,200,250,0.08);
+    border: 1px solid rgba(91,200,250,0.2);
+    border-radius: var(--radius-sm);
+    margin-bottom: 16px;
+  }
+  .bulk-bar.visible { display: flex; }
+  .bulk-bar-label { font-size: 13px; color: var(--accent); font-weight: 600; flex: 0 0 auto; }
+  .bulk-select {
+    flex: 1;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-family: 'Sora', sans-serif;
+    font-size: 13px;
+    padding: 7px 10px;
+    outline: none;
+  }
+  .bulk-move-btn {
+    padding: 8px 18px;
+    border-radius: var(--radius-sm);
+    border: none;
+    background: rgba(91,200,250,0.15);
+    color: var(--accent);
+    font-family: 'Sora', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s;
+  }
+  .bulk-move-btn:hover { background: rgba(91,200,250,0.25); }
+  .bulk-skip-btn {
+    padding: 8px 14px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-dimmer);
+    font-family: 'Sora', sans-serif;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .bulk-skip-btn:hover { color: var(--red); border-color: var(--red); }
+  .select-all-btn {
+    padding: 4px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-dimmer);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .select-all-btn:hover { color: var(--text); border-color: var(--border-active); }
   .intake-filename {
     font-size: 13px;
     font-weight: 500;
@@ -733,6 +811,24 @@
     <div class="intake-header">
       <h2>New Messages</h2>
       <span class="intake-badge" id="intakeBadge">Scanning…</span>
+      <button class="select-all-btn" onclick="toggleSelectAll()">Select All</button>
+    </div>
+    <!-- Bulk action bar -->
+    <div class="bulk-bar" id="bulkBar">
+      <span class="bulk-bar-label" id="bulkLabel">0 selected</span>
+      <select class="bulk-select" id="bulkCat">
+        <option value="">— Move all to… —</option>
+        <option value="Business">Business</option>
+        <option value="Deals">Deals</option>
+        <option value="Litigation">Litigation</option>
+        <option value="Family">Family</option>
+        <option value="Friends">Friends</option>
+        <option value="Groups">Groups</option>
+        <option value="Personal">Personal</option>
+        <option value="_review">_review</option>
+      </select>
+      <button class="bulk-move-btn" onclick="bulkMove()">Move →</button>
+      <button class="bulk-skip-btn" onclick="bulkSkip()">✕ Skip All</button>
     </div>
     <div id="intakeContent">
       <div class="loading"><div class="spinner"></div>Scanning Downloads…</div>
@@ -936,7 +1032,7 @@ function fileCard(f) {
   const name = f.name || f.path?.split('/').pop()?.replace('.html','') || 'Unknown';
   const sub = f.subfolder ? `<div class="file-card-meta">${f.subfolder}</div>` : '';
   const badge = `<span class="file-card-badge badge-${f.category}">${f.category}</span>`;
-  const uid = btoa(f.path || name).replace(/[^a-zA-Z0-9]/g,'').substring(0,16);
+  const uid = btoa(encodeURIComponent(f.path || name)).replace(/[^a-zA-Z0-9]/g,'').substring(0,16);
   // Show rename icon if name looks like a phone number
   const isNumber = /^\+?\d[\d\s\+,]+$/.test(name.replace('.html',''));
   const renameBtn = isNumber ? `<button class="card-rename-btn" onclick="event.preventDefault();toggleRename('${uid}')" title="Add name">✏️</button>` : '';
@@ -978,6 +1074,7 @@ function fileCard(f) {
       <div class="card-edit-actions">
         <button class="card-edit-save" onclick="saveMove('${uid}','${f.path}','${name}')">Move →</button>
         <button class="card-edit-cancel" onclick="toggleEdit('${uid}')">Cancel</button>
+        <button class="card-edit-cancel" style="color:var(--red);border-color:rgba(239,154,154,0.3)" onclick="deleteFile('${uid}','${f.path}')">🗑</button>
       </div>
     </div>
   </div>`;
@@ -1082,17 +1179,18 @@ async function showIntake() {
     }
 
     document.getElementById('intakeContent').innerHTML = `<div class="intake-grid">${newFiles.map(f => `
-      <div class="intake-card" id="intake_${f.id}">
+      <div class="intake-card" id="intake_${f.id}" onclick="toggleCheck('${f.id}')">
+        <input type="checkbox" class="intake-checkbox" id="chk_${f.id}" onclick="event.stopPropagation();toggleCheck('${f.id}')" data-name="${f.name}">
         <div class="intake-contact-name" style="font-size:14px;font-weight:600;margin-bottom:4px;color:var(--text)">${f.display}</div>
-        <a class="intake-filename" href="${BASE}/api/preview?file=${encodeURIComponent(f.name)}" target="_blank" title="Preview thread">👁 ${f.name}</a>
-        <select class="intake-select" id="cat_${f.id}">
+        <a class="intake-filename" href="${BASE}/api/preview?file=${encodeURIComponent(f.name)}" target="_blank" title="Preview thread" onclick="event.stopPropagation()">👁 ${f.name}</a>
+        <select class="intake-select" id="cat_${f.id}" onclick="event.stopPropagation()">
           <option value="">— Select category —</option>
           ${categoryOptions}
           <optgroup label="Deals">${dealOptions}</optgroup>
         </select>
         <div style="display:flex;gap:6px;margin-top:8px">
-          <button class="intake-btn" style="flex:1" onclick="moveFile('${f.id}','${f.name}')">Move →</button>
-          <button class="intake-btn" style="flex:0;padding:9px 12px;background:rgba(255,255,255,0.05);color:var(--text-dimmer)" onclick="skipFile('${f.id}','${f.name}')" title="Skip — not relevant">✕</button>
+          <button class="intake-btn" style="flex:1" onclick="event.stopPropagation();moveFile('${f.id}','${f.name}')">Move →</button>
+          <button class="intake-btn" style="flex:0;padding:9px 12px;background:rgba(255,255,255,0.05);color:var(--text-dimmer)" onclick="event.stopPropagation();skipFile('${f.id}','${f.name}')" title="Skip — not relevant">✕</button>
         </div>
       </div>`).join('')}</div>`;
   } catch {
@@ -1138,6 +1236,25 @@ async function createDeal() {
 }
 
 // ─── Card Edit / Move ─────────────────────────────────────────────────────────
+
+async function deleteFile(uid, path) {
+  if (!confirm('Permanently delete this file?')) return;
+  try {
+    const r = await fetch(`${BASE}/api/delete`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ path })
+    });
+    if (r.ok) {
+      await loadFiles();
+      renderTab(activeTab);
+    } else {
+      alert('Delete failed.');
+    }
+  } catch {
+    alert('Delete failed. Server may be offline.');
+  }
+}
 
 async function saveName(uid, currentPath) {
   const newName = document.getElementById('ename_' + uid)?.value.trim();
