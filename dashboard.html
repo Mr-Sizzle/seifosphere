@@ -339,7 +339,27 @@
     font-weight: 500;
   }
 
-  /* Edit button on card */
+  /* Edit / rename buttons on card */
+  .card-rename-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px; height: 20px;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.05);
+    color: var(--text-dimmer);
+    font-size: 11px;
+    cursor: pointer;
+    vertical-align: middle;
+    margin-left: 5px;
+    transition: all 0.15s;
+  }
+  .card-rename-btn:hover {
+    background: rgba(255,255,255,0.1);
+    color: var(--text);
+    border-color: var(--border-active);
+  }
   .card-edit-btn {
     position: absolute;
     top: 10px;
@@ -896,8 +916,10 @@ async function loadFiles() {
 
 function updateStats() {
   const unmatched = allFiles.filter(f => f.category === 'Unmatched').length;
-  document.getElementById('statTotal').textContent = allFiles.length || '—';
-  document.getElementById('statUnmatched').textContent = unmatched || '—';
+  const totalEl = document.getElementById('statTotal');
+  const unmatchedEl = document.getElementById('statUnmatched');
+  if (totalEl) totalEl.textContent = allFiles.length || '—';
+  if (unmatchedEl) unmatchedEl.textContent = unmatched || '—';
 }
 
 function updateQuickCards() {
@@ -909,7 +931,7 @@ function updateQuickCards() {
   });
   const dealCount = allFiles.filter(f => f.category === 'Deals').length;
   const el = document.getElementById('qcDeals');
-  if (el) el.textContent = `${dealCount} files · 12 folders`;
+  if (el) el.textContent = `${dealCount} files · ${deals.length} folders`;
 }
 
 // ─── Search ───────────────────────────────────────────────────────────────────
@@ -1180,7 +1202,7 @@ async function showIntake() {
 
     document.getElementById('intakeContent').innerHTML = `<div class="intake-grid">${newFiles.map(f => `
       <div class="intake-card" id="intake_${f.id}" onclick="toggleCheck('${f.id}')">
-        <input type="checkbox" class="intake-checkbox" id="chk_${f.id}" onclick="event.stopPropagation();toggleCheck('${f.id}')" data-name="${f.name}">
+        <input type="checkbox" class="intake-checkbox" id="chk_${f.id}" onclick="event.stopPropagation()" onchange="syncCardState('${f.id}')" data-name="${f.name}">
         <div class="intake-contact-name" style="font-size:14px;font-weight:600;margin-bottom:4px;color:var(--text)">${f.display}</div>
         <a class="intake-filename" href="${BASE}/api/preview?file=${encodeURIComponent(f.name)}" target="_blank" title="Preview thread" onclick="event.stopPropagation()">👁 ${f.name}</a>
         <select class="intake-select" id="cat_${f.id}" onclick="event.stopPropagation()">
@@ -1347,6 +1369,99 @@ async function saveMove(uid, currentPath, filename) {
   } catch {
     alert('Move failed. Server may be offline.');
   }
+}
+
+// ─── Bulk Selection ───────────────────────────────────────────────────────────
+
+function syncCardState(id) {
+  // Called via checkbox onchange — browser already toggled the checkbox value
+  const chk  = document.getElementById('chk_' + id);
+  const card = document.getElementById('intake_' + id);
+  if (!chk || !card) return;
+  card.classList.toggle('selected', chk.checked);
+  updateBulkBar();
+}
+
+function toggleCheck(id) {
+  // Called via card div click — manually flip the checkbox then sync
+  const chk = document.getElementById('chk_' + id);
+  if (!chk) return;
+  chk.checked = !chk.checked;
+  syncCardState(id);
+}
+
+function updateBulkBar() {
+  const checked = document.querySelectorAll('.intake-checkbox:checked');
+  const bar     = document.getElementById('bulkBar');
+  const label   = document.getElementById('bulkLabel');
+  if (!bar) return;
+  if (checked.length > 0) {
+    bar.classList.add('visible');
+    if (label) label.textContent = checked.length + ' selected';
+  } else {
+    bar.classList.remove('visible');
+  }
+}
+
+function toggleSelectAll() {
+  const all       = document.querySelectorAll('.intake-checkbox');
+  const allChecked = Array.from(all).every(c => c.checked);
+  all.forEach(chk => {
+    chk.checked = !allChecked;
+    const id = chk.id.replace('chk_', '');
+    const card = document.getElementById('intake_' + id);
+    if (card) card.classList.toggle('selected', !allChecked);
+  });
+  updateBulkBar();
+}
+
+async function bulkMove() {
+  const dest = document.getElementById('bulkCat')?.value;
+  if (!dest) { alert('Select a destination first.'); return; }
+  const checked = Array.from(document.querySelectorAll('.intake-checkbox:checked'));
+  if (!checked.length) return;
+
+  let moved = 0, failed = 0;
+  for (const chk of checked) {
+    const name = chk.dataset.name;
+    const id   = chk.id.replace('chk_', '');
+    try {
+      const r = await fetch(`${BASE}/api/move`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ file: name, destination: dest })
+      });
+      if (r.ok) {
+        document.getElementById('intake_' + id)?.remove();
+        moved++;
+      } else {
+        failed++;
+      }
+    } catch {
+      failed++;
+    }
+  }
+  if (failed) alert(`${moved} moved, ${failed} failed.`);
+  updateBulkBar();
+  await loadFiles();
+}
+
+async function bulkSkip() {
+  const checked = Array.from(document.querySelectorAll('.intake-checkbox:checked'));
+  if (!checked.length) return;
+  for (const chk of checked) {
+    const name = chk.dataset.name;
+    const id   = chk.id.replace('chk_', '');
+    try {
+      await fetch(`${BASE}/api/skip`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ file: name })
+      });
+    } catch {}
+    document.getElementById('intake_' + id)?.remove();
+  }
+  updateBulkBar();
 }
 
 // ─── Start ────────────────────────────────────────────────────────────────────

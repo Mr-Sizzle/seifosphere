@@ -25,7 +25,7 @@
     <false/>
 
     <key>StartOnMount</key>
-    <true/>}
+    <true/>
 
     <key>StandardOutPath</key>
     <string>/Users/sizzle/imessage_export_IPHONE/sync.log</string>
