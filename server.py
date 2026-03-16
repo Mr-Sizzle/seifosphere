@@ -42,6 +42,7 @@ def scan_files():
     path is relative to BASE_DIR so it can be used as a URL path.
     """
     files = []
+    contact_map = get_contact_map()  # cached after first call
     for folder, category in CATEGORY_MAP.items():
         folder_path = BASE_DIR / folder
         if not folder_path.exists():
@@ -50,7 +51,9 @@ def scan_files():
             rel = item.relative_to(BASE_DIR)
             parts = rel.parts  # e.g. ('Deals', 'Air_Experts', 'contact.html')
             subfolder = parts[1] if len(parts) > 2 else ""
-            name = item.stem  # filename without .html
+            stem = item.stem  # filename without .html
+            resolved = resolve_filename(item.name, contact_map)
+            name = resolved if resolved else stem
             files.append({
                 "name":      name,
                 "category":  category,
