@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Review Queue · Seifosphere</title>
+<style>
+  :root {
+    --bg:           #0d0d0d;
+    --surface:      rgba(255,255,255,0.04);
+    --surface-hover:rgba(255,255,255,0.07);
+    --border:       rgba(255,255,255,0.08);
+    --border-active:rgba(255,255,255,0.18);
+    --text:         #e8e8e8;
+    --text-dim:     #999;
+    --text-dimmer:  #555;
+    --accent:       #5bc8fa;
+    --red:          #ef9a9a;
+    --radius:       12px;
+    --radius-sm:    8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+    padding: 0 0 60px 0;
+  }
+
+  /* ── Top bar ── */
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(13,13,13,0.92);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 24px;
+  }
+  .back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(91,200,250,0.12);
+    color: var(--accent);
+    border: 1px solid rgba(91,200,250,0.25);
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .back-btn:hover { background: rgba(91,200,250,0.2); }
+  .topbar-title { font-size: 16px; font-weight: 700; color: var(--text); }
+  .topbar-count { font-size: 12px; color: var(--text-dim); margin-left: 4px; }
+
+  /* ── Content ── */
+  .content { max-width: 900px; margin: 0 auto; padding: 28px 24px 0; }
+
+  /* ── Search ── */
+  .search-row { display: flex; gap: 10px; margin-bottom: 16px; align-items: center; flex-wrap: wrap; }
+  .search-input {
+    flex: 1;
+    min-width: 200px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-size: 14px;
+    padding: 9px 14px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .search-input:focus { border-color: var(--accent); }
+  .search-input::placeholder { color: var(--text-dimmer); }
+
+  /* ── Bulk bar ── */
+  .bulk-bar {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border-active);
+    border-radius: var(--radius-sm);
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .bulk-bar.visible { display: flex; }
+  .bulk-label { font-size: 13px; color: var(--accent); font-weight: 600; }
+  .bulk-cat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 13px;
+    padding: 6px 10px;
+    cursor: pointer;
+    outline: none;
+  }
+  .btn {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--text-dim);
+    font-size: 12px;
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .btn-move { border-color: rgba(91,200,250,0.4); color: var(--accent); }
+  .btn-move:hover { background: rgba(91,200,250,0.15); }
+  .btn-delete { border-color: rgba(239,154,154,0.3); color: var(--red); }
+  .btn-delete:hover { background: rgba(239,154,154,0.1); }
+  .btn-cancel:hover { color: var(--text); border-color: var(--border-active); }
+
+  /* ── Table ── */
+  .table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  thead th {
+    background: rgba(255,255,255,0.03);
+    border-bottom: 1px solid var(--border);
+    padding: 11px 16px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    text-align: left;
+  }
+  thead th:first-child { width: 44px; text-align: center; }
+  thead th:last-child  { width: 44px; }
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.12s;
+  }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover td { background: var(--surface-hover); }
+  tbody tr.selected td { background: rgba(91,200,250,0.06); }
+  td { padding: 10px 16px; }
+  td:first-child { text-align: center; width: 44px; }
+  td:last-child  { text-align: center; width: 44px; }
+  .row-check { accent-color: var(--accent); cursor: pointer; width: 15px; height: 15px; }
+  td a { color: var(--accent); text-decoration: none; font-size: 13.5px; font-weight: 500; }
+  td a:hover { text-decoration: underline; }
+  .del-btn {
+    background: none;
+    border: 1px solid rgba(239,154,154,0.25);
+    border-radius: 6px;
+    color: var(--red);
+    font-size: 14px;
+    width: 28px; height: 28px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .del-btn:hover { background: rgba(239,154,154,0.1); border-color: var(--red); }
+
+  .empty { text-align: center; padding: 48px 20px; color: var(--text-dim); font-size: 14px; }
+  .offline-banner {
+    display: none;
+    background: rgba(239,154,154,0.1);
+    border: 1px solid rgba(239,154,154,0.25);
+    border-radius: var(--radius-sm);
+    color: var(--red);
+    font-size: 13px;
+    padding: 10px 16px;
+    margin-bottom: 16px;
+  }
+  .offline-banner.visible { display: block; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="back-btn" href="http://localhost:8765/dashboard.html">← Dashboard</a>
+  <span class="topbar-title">Review Queue</span>
+  <span class="topbar-count" id="topCount"></span>
+</div>
+
+<div class="content">
+  <div class="offline-banner" id="offlineBanner">⚠️ Server offline — start server.py to use this page</div>
+
+  <div class="search-row">
+    <input class="search-input" type="text" id="searchInput" placeholder="Search…" oninput="filterRows()">
+  </div>
+
+  <div class="bulk-bar" id="bulkBar">
+    <span class="bulk-label" id="bulkLabel">0 selected</span>
+    <select class="bulk-cat" id="bulkCat">
+      <option value="">Move to…</option>
+      <option value="Business">Business</option>
+      <option value="Deals">Deals</option>
+      <option value="Litigation">Litigation</option>
+      <option value="Family">Family</option>
+      <option value="Friends">Friends</option>
+      <option value="Groups">Groups</option>
+      <option value="Personal">Personal</option>
+      <option value="_unmatched">Unmatched</option>
+    </select>
+    <button class="btn btn-move" onclick="bulkMove()">Move →</button>
+    <button class="btn btn-delete" onclick="bulkDelete()">🗑 Delete All</button>
+    <button class="btn btn-cancel" onclick="clearSelection()">✕ Cancel</button>
+  </div>
+
+  <div class="table-wrap">
+    <table id="reviewTable">
+      <thead>
+        <tr>
+          <th><input type="checkbox" class="row-check" id="checkAll" onclick="toggleAll(this)"></th>
+          <th>Name</th>
+          <th>Subfolder</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tbody">
+        <tr><td colspan="4" class="empty">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const BASE = 'http://localhost:8765';
+let allRows = []; // { path, name, subfolder }
+
+async function load() {
+  try {
+    const r = await fetch(`${BASE}/api/files`);
+    if (!r.ok) throw new Error();
+    const data = await r.json();
+    allRows = (data.files || [])
+      .filter(f => f.category === 'Review')
+      .map(f => ({ path: f.path, name: f.name, subfolder: f.subfolder || '' }));
+    render();
+  } catch {
+    document.getElementById('offlineBanner').classList.add('visible');
+    document.getElementById('tbody').innerHTML = `<tr><td colspan="4" class="empty">Could not reach server at ${BASE}</td></tr>`;
+  }
+}
+
+function render() {
+  const query = document.getElementById('searchInput').value.toLowerCase();
+  const visible = query ? allRows.filter(r => r.name.toLowerCase().includes(query) || r.subfolder.toLowerCase().includes(query)) : allRows;
+  document.getElementById('topCount').textContent = `${visible.length} thread${visible.length !== 1 ? 's' : ''}`;
+
+  if (!visible.length) {
+    document.getElementById('tbody').innerHTML = `<tr><td colspan="4" class="empty">✅ Review queue is empty</td></tr>`;
+    return;
+  }
+
+  const uid = p => btoa(encodeURIComponent(p)).replace(/[^a-zA-Z0-9]/g,'').substring(0,20);
+  document.getElementById('tbody').innerHTML = visible.map(f => {
+    const id = uid(f.path);
+    return `<tr id="row_${id}" data-path="${f.path}">
+      <td><input type="checkbox" class="row-check" id="chk_${id}" onchange="syncRow('${id}')"></td>
+      <td><a href="${BASE}/${f.path}" target="_blank">${f.name}</a></td>
+      <td style="color:var(--text-dim);font-size:12px">${f.subfolder}</td>
+      <td><button class="del-btn" onclick="deleteOne('${id}','${f.path}')" title="Delete">🗑</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function filterRows() { render(); clearSelection(); }
+
+function toggleAll(cb) {
+  document.querySelectorAll('#tbody .row-check').forEach(c => {
+    c.checked = cb.checked;
+    const row = c.closest('tr');
+    if (row) row.classList.toggle('selected', cb.checked);
+  });
+  updateBulkBar();
+}
+
+function syncRow(id) {
+  const chk = document.getElementById('chk_' + id);
+  const row = document.getElementById('row_' + id);
+  if (row) row.classList.toggle('selected', chk?.checked);
+  updateBulkBar();
+}
+
+function updateBulkBar() {
+  const checked = document.querySelectorAll('#tbody .row-check:checked').length;
+  const bar = document.getElementById('bulkBar');
+  const label = document.getElementById('bulkLabel');
+  if (checked > 0) {
+    bar.classList.add('visible');
+    label.textContent = `${checked} selected`;
+  } else {
+    bar.classList.remove('visible');
+  }
+}
+
+function clearSelection() {
+  document.querySelectorAll('#tbody .row-check').forEach(c => c.checked = false);
+  document.querySelectorAll('#tbody tr.selected').forEach(r => r.classList.remove('selected'));
+  document.getElementById('checkAll').checked = false;
+  updateBulkBar();
+}
+
+async function deleteOne(id, path) {
+  try {
+    const r = await fetch(`${BASE}/api/delete`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ path })
+    });
+    if (r.ok) {
+      allRows = allRows.filter(f => f.path !== path);
+      render();
+    } else {
+      alert('Delete failed.');
+    }
+  } catch { alert('Server offline.'); }
+}
+
+async function bulkDelete() {
+  const checked = [...document.querySelectorAll('#tbody .row-check:checked')];
+  if (!checked.length) return;
+  const paths = checked.map(c => c.closest('tr').dataset.path).filter(Boolean);
+  let failed = 0;
+  for (const path of paths) {
+    try {
+      const r = await fetch(`${BASE}/api/delete`, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ path })
+      });
+      if (r.ok) allRows = allRows.filter(f => f.path !== path);
+      else failed++;
+    } catch { failed++; }
+  }
+  clearSelection();
+  render();
+  if (failed) alert(`${paths.length - failed} deleted, ${failed} failed.`);
+}
+
+async function bulkMove() {
+  const dest = document.getElementById('bulkCat').value;
+  if (!dest) { alert('Select a destination first.'); return; }
+  const checked = [...document.querySelectorAll('#tbody .row-check:checked')];
+  if (!checked.length) return;
+  const paths = checked.map(c => c.closest('tr').dataset.path).filter(Boolean);
+  let moved = 0, failed = 0;
+  for (const path of paths) {
+    try {
+      const r = await fetch(`${BASE}/api/move-archived`, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ path, destination: dest })
+      });
+      if (r.ok) { allRows = allRows.filter(f => f.path !== path); moved++; }
+      else failed++;
+    } catch { failed++; }
+  }
+  clearSelection();
+  render();
+  if (failed) alert(`${moved} moved, ${failed} failed.`);
+}
+
+load();
+</script>
+</body>
+</html>

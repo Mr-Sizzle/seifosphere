@@ -76,6 +76,13 @@ def get_contact_map():
     import glob
     contacts = {}
 
+    # ── 0. Hardcoded overrides ─────────────────────────────────────────────────
+    HARDCODED = {
+        "5615435855": "Adam Allison",
+        "15615435855": "Adam Allison",
+    }
+    contacts.update(HARDCODED)
+
     # ── 1. All AddressBook databases ──────────────────────────────────────────
     db_paths = glob.glob(str(Path.home() / "Library/Application Support/AddressBook/Sources/*/AddressBook-v22.abcddb"))
     # Also include the root one
