@@ -1076,7 +1076,7 @@ async function showIntake() {
     document.getElementById('intakeContent').innerHTML = `<div class="intake-grid">${newFiles.map(f => `
       <div class="intake-card" id="intake_${f.id}">
         <div class="intake-contact-name" style="font-size:14px;font-weight:600;margin-bottom:4px;color:var(--text)">${f.display}</div>
-        <div class="intake-filename">${f.name}</div>
+        <a class="intake-filename" href="${BASE}/api/preview?file=${encodeURIComponent(f.name)}" target="_blank" title="Preview thread">👁 ${f.name}</a>
         <select class="intake-select" id="cat_${f.id}">
           <option value="">— Select category —</option>
           ${categoryOptions}
