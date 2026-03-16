@@ -68,74 +68,57 @@ def get_deals():
     return sorted([d.name for d in deals_dir.iterdir() if d.is_dir()])
 
 
+# ── Contact map cache (populated once per server run) ─────────────────────────
+_contact_cache: dict = {}
+_contact_cache_loaded = False
+
 def get_contact_map():
     """
     Builds a dict mapping phone number digits → contact name.
-    Searches ALL AddressBook databases, then falls back to iMessage chat.db.
+    Uses a Swift helper to read from the macOS Contacts framework (properly
+    authorized), with hardcoded overrides applied on top.
+    Result is cached in memory for the lifetime of the server process.
     """
-    import glob
+    global _contact_cache, _contact_cache_loaded
+    if _contact_cache_loaded:
+        return _contact_cache
+
+    import subprocess
     contacts = {}
 
     # ── 0. Hardcoded overrides ─────────────────────────────────────────────────
     HARDCODED = {
-        "5615435855": "Adam Allison",
+        "5615435855":  "Adam Allison",
         "15615435855": "Adam Allison",
     }
     contacts.update(HARDCODED)
 
-    # ── 1. All AddressBook databases ──────────────────────────────────────────
-    db_paths = glob.glob(str(Path.home() / "Library/Application Support/AddressBook/Sources/*/AddressBook-v22.abcddb"))
-    # Also include the root one
-    root_db = str(Path.home() / "Library/Application Support/AddressBook/AddressBook-v22.abcddb")
-    if Path(root_db).exists():
-        db_paths.insert(0, root_db)
-
-    for db_path in db_paths:
+    # ── 1. Swift Contacts framework export ────────────────────────────────────
+    swift_script = BASE_DIR / "export_contacts.swift"
+    if swift_script.exists():
         try:
-            import sqlite3 as _sqlite3
-            conn = _sqlite3.connect(db_path)
-            cur = conn.cursor()
-            cur.execute("""
-                SELECT r.ZFIRSTNAME, r.ZLASTNAME, p.ZFULLNUMBER
-                FROM ZABCDRECORD r
-                JOIN ZABCDPHONENUMBER p ON p.ZOWNER = r.Z_PK
-                WHERE p.ZFULLNUMBER IS NOT NULL
-            """)
-            for first, last, number in cur.fetchall():
-                digits = ''.join(c for c in (number or '') if c.isdigit())
-                if not digits:
+            result = subprocess.run(
+                ["swift", str(swift_script)],
+                capture_output=True, text=True, timeout=60
+            )
+            for line in result.stdout.splitlines():
+                if "|" not in line:
                     continue
-                name_parts = [x for x in [first, last] if x]
-                name = ' '.join(name_parts) if name_parts else None
-                if name and digits not in contacts:
+                digits, name = line.split("|", 1)
+                digits = digits.strip()
+                name   = name.strip()
+                if digits and name and digits not in contacts:
                     contacts[digits] = name
-                    if len(digits) > 10:
-                        contacts[digits[-10:]] = name
-            conn.close()
         except Exception:
             pass
 
-    # ── 2. iMessage chat.db fallback ──────────────────────────────────────────
+    # ── 2. iMessage chat.db fallback (display names for group chats) ──────────
     chat_db = Path.home() / "Library/Messages/chat.db"
     if chat_db.exists():
         try:
             import sqlite3 as _sqlite3
             conn = _sqlite3.connect(str(chat_db))
-            cur = conn.cursor()
-            cur.execute("""
-                SELECT h.id, h.uncanonicalized_id
-                FROM handle h
-                WHERE h.id IS NOT NULL
-            """)
-            for handle_id, uncanon in cur.fetchall():
-                digits = ''.join(c for c in (handle_id or '') if c.isdigit())
-                if not digits or digits in contacts:
-                    continue
-                if uncanon and any(c.isalpha() for c in uncanon):
-                    contacts[digits] = uncanon
-                    if len(digits) > 10:
-                        contacts[digits[-10:]] = uncanon
-
+            cur  = conn.cursor()
             cur.execute("""
                 SELECT c.chat_identifier, c.display_name
                 FROM chat c
@@ -147,11 +130,12 @@ def get_contact_map():
                     contacts[digits] = display_name
                     if len(digits) > 10:
                         contacts[digits[-10:]] = display_name
-
             conn.close()
         except Exception:
             pass
 
+    _contact_cache = contacts
+    _contact_cache_loaded = True
     return contacts
 
 
