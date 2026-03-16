@@ -360,6 +360,35 @@
     color: var(--text);
     border-color: var(--border-active);
   }
+  .arc-checkbox {
+    display: none;
+    position: absolute;
+    top: 13px;
+    left: 10px;
+    width: 15px;
+    height: 15px;
+    cursor: pointer;
+    z-index: 3;
+    accent-color: var(--accent);
+  }
+  #fileGrid.archive-select-mode .arc-checkbox { display: block; }
+  #fileGrid.archive-select-mode .file-card { padding-left: 32px; }
+  .file-card-wrap.arc-selected > .file-card {
+    border-color: var(--accent);
+    background: rgba(91,200,250,0.08);
+  }
+  .archive-bulk-bar {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border-active);
+    border-radius: var(--radius-sm);
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .archive-bulk-bar.visible { display: flex; }
   .card-edit-btn {
     position: absolute;
     top: 10px;
@@ -820,6 +849,25 @@
     <div class="section-header">
       <span class="section-title" id="gridTitle">Files</span>
       <span class="section-count" id="gridCount"></span>
+      <button id="archiveSelectBtn" onclick="toggleArchiveMode()" title="Bulk select" style="margin-left:auto;background:none;border:1px solid var(--border);border-radius:5px;color:var(--text-dimmer);font-size:12px;padding:4px 10px;cursor:pointer;transition:all 0.15s">☑ Select</button>
+    </div>
+    <div class="archive-bulk-bar" id="archiveBulkBar">
+      <span class="bulk-bar-label" id="archiveBulkLabel">0 selected</span>
+      <select class="bulk-select" id="archiveBulkCat">
+        <option value="">Move to…</option>
+        <option value="Business">Business</option>
+        <option value="Deals">Deals</option>
+        <option value="Litigation">Litigation</option>
+        <option value="Family">Family</option>
+        <option value="Friends">Friends</option>
+        <option value="Groups">Groups</option>
+        <option value="Personal">Personal</option>
+        <option value="_review">Review</option>
+        <option value="_unmatched">Unmatched</option>
+      </select>
+      <button class="bulk-move-btn" onclick="bulkMoveArchive()">Move →</button>
+      <button class="bulk-skip-btn" onclick="bulkDeleteArchive()">🗑 Delete</button>
+      <button class="card-edit-cancel" onclick="clearArchiveSelection()" style="margin-left:auto">✕ Cancel</button>
     </div>
     <div id="gridContent">
       <div class="loading"><div class="spinner"></div>Loading files…</div>
@@ -868,6 +916,8 @@ let allFiles = [];
 let deals = [];
 let activeTab = 'Home';
 let searchQuery = '';
+let archiveSelected = new Set();
+let archiveSelectMode = false;
 
 // ─── GHA / SFP / Deal grouping logic ─────────────────────────────────────────
 const GHA_PARTNERS = ['Eric Seifert','Gregg Lerman','Josh Gladtke','Brian Hastings','Robert Fleisher'];
@@ -1000,6 +1050,7 @@ function showHome() {
 function renderTab(category) {
   document.getElementById('homeScreen').style.display = 'none';
   document.getElementById('intakePanel').classList.remove('visible');
+  clearArchiveSelection();
   const files = getFilteredFiles(category);
   const title = category + ' (' + files.length + ')';
   if (category === 'Business') {
@@ -1074,7 +1125,8 @@ function fileCard(f) {
                             initialCat === 'Deals'      ? dealOptions : '';
   const showSub = ['Deals','Litigation'].includes(initialCat);
 
-  return `<div class="file-card-wrap">
+  return `<div class="file-card-wrap" id="awrap_${uid}" data-path="${f.path}">
+    <input type="checkbox" class="arc-checkbox" id="achk_${uid}" onclick="event.stopPropagation(); toggleArchiveCard('${uid}')">
     <a class="file-card" href="${href}" target="_blank">
       <div class="file-card-name">${name}${renameBtn}</div>
       ${sub}
@@ -1260,7 +1312,6 @@ async function createDeal() {
 // ─── Card Edit / Move ─────────────────────────────────────────────────────────
 
 async function deleteFile(uid, path) {
-  if (!confirm('Permanently delete this file?')) return;
   try {
     const r = await fetch(`${BASE}/api/delete`, {
       method: 'POST',
@@ -1462,6 +1513,102 @@ async function bulkSkip() {
     document.getElementById('intake_' + id)?.remove();
   }
   updateBulkBar();
+}
+
+// ─── Archive Bulk Select ──────────────────────────────────────────────────────
+
+function toggleArchiveMode() {
+  archiveSelectMode = !archiveSelectMode;
+  const grid = document.getElementById('fileGrid');
+  const btn  = document.getElementById('archiveSelectBtn');
+  if (archiveSelectMode) {
+    grid.classList.add('archive-select-mode');
+    if (btn) { btn.style.opacity = '1'; btn.style.color = 'var(--accent)'; btn.style.borderColor = 'var(--accent)'; }
+  } else {
+    clearArchiveSelection();
+  }
+}
+
+function toggleArchiveCard(uid) {
+  const wrap = document.getElementById('awrap_' + uid);
+  const chk  = document.getElementById('achk_' + uid);
+  if (!wrap || !chk) return;
+  const path = wrap.dataset.path;
+  if (chk.checked) {
+    archiveSelected.add(path);
+    wrap.classList.add('arc-selected');
+  } else {
+    archiveSelected.delete(path);
+    wrap.classList.remove('arc-selected');
+  }
+  updateArchiveBulkBar();
+}
+
+function updateArchiveBulkBar() {
+  const bar   = document.getElementById('archiveBulkBar');
+  const label = document.getElementById('archiveBulkLabel');
+  if (!bar || !label) return;
+  const n = archiveSelected.size;
+  if (n > 0) {
+    bar.classList.add('visible');
+    label.textContent = n + ' selected';
+  } else {
+    bar.classList.remove('visible');
+  }
+}
+
+function clearArchiveSelection() {
+  archiveSelected.clear();
+  archiveSelectMode = false;
+  const grid = document.getElementById('fileGrid');
+  const btn  = document.getElementById('archiveSelectBtn');
+  if (grid) grid.classList.remove('archive-select-mode');
+  if (btn)  { btn.style.opacity = ''; btn.style.color = ''; btn.style.borderColor = ''; }
+  document.querySelectorAll('.arc-checkbox').forEach(c => c.checked = false);
+  document.querySelectorAll('.file-card-wrap.arc-selected').forEach(w => w.classList.remove('arc-selected'));
+  updateArchiveBulkBar();
+}
+
+async function bulkDeleteArchive() {
+  if (!archiveSelected.size) return;
+  const paths = [...archiveSelected];
+  let deleted = 0, failed = 0;
+  for (const path of paths) {
+    try {
+      const r = await fetch(`${BASE}/api/delete`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ path })
+      });
+      if (r.ok) deleted++; else failed++;
+    } catch { failed++; }
+  }
+  clearArchiveSelection();
+  await loadFiles();
+  renderTab(activeTab);
+  if (failed) alert(`${deleted} deleted, ${failed} failed.`);
+}
+
+async function bulkMoveArchive() {
+  const dest = document.getElementById('archiveBulkCat')?.value;
+  if (!dest) { alert('Select a destination first.'); return; }
+  if (!archiveSelected.size) return;
+  const paths = [...archiveSelected];
+  let moved = 0, failed = 0;
+  for (const path of paths) {
+    try {
+      const r = await fetch(`${BASE}/api/move-archived`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ path, destination: dest })
+      });
+      if (r.ok) moved++; else failed++;
+    } catch { failed++; }
+  }
+  clearArchiveSelection();
+  await loadFiles();
+  renderTab(activeTab);
+  if (failed) alert(`${moved} moved, ${failed} failed.`);
 }
 
 // ─── Start ────────────────────────────────────────────────────────────────────
