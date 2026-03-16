@@ -1,0 +1,1205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seifosphere Archive</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #08080f;
+    --surface: rgba(255,255,255,0.05);
+    --surface-hover: rgba(255,255,255,0.08);
+    --border: rgba(255,255,255,0.07);
+    --border-active: rgba(255,255,255,0.18);
+    --text: #eeeef5;
+    --text-dim: rgba(238,238,245,0.55);
+    --text-dimmer: rgba(238,238,245,0.3);
+    --accent: #5bc8fa;
+    --accent2: #b39ddb;
+    --accent3: #80cbc4;
+    --green: #a5d6a7;
+    --orange: #ffcc80;
+    --red: #ef9a9a;
+    --radius: 16px;
+    --radius-sm: 10px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Sora', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Animated mesh background */
+  .bg-mesh {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .bg-mesh::before, .bg-mesh::after {
+    content: '';
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.5;
+  }
+  .bg-mesh::before {
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(79,195,247,0.12) 0%, transparent 70%);
+    top: -100px; left: -100px;
+    animation: drift1 25s ease-in-out infinite alternate;
+  }
+  .bg-mesh::after {
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(179,157,219,0.1) 0%, transparent 70%);
+    bottom: -100px; right: -100px;
+    animation: drift2 20s ease-in-out infinite alternate;
+  }
+  .bg-mesh-mid {
+    position: fixed;
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(128,203,196,0.07) 0%, transparent 70%);
+    border-radius: 50%;
+    filter: blur(60px);
+    top: 40%; left: 40%;
+    transform: translate(-50%, -50%);
+    animation: drift3 30s ease-in-out infinite alternate;
+    pointer-events: none;
+    z-index: 0;
+  }
+  @keyframes drift1 { from { transform: translate(0,0); } to { transform: translate(80px, 60px); } }
+  @keyframes drift2 { from { transform: translate(0,0); } to { transform: translate(-60px, -80px); } }
+  @keyframes drift3 { from { transform: translate(-50%,-50%) scale(1); } to { transform: translate(-50%,-50%) scale(1.3); } }
+
+  /* Layout */
+  #app {
+    position: relative;
+    z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 32px 24px 80px;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 36px;
+  }
+  .header-logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .logo-icon {
+    width: 38px; height: 38px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .logo-text {
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+  }
+  .logo-sub {
+    font-size: 11px;
+    color: var(--text-dim);
+    font-weight: 400;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .header-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-dimmer);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  .status-dot.offline { background: var(--red); animation: none; }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+
+  /* Search */
+  .search-wrap {
+    position: relative;
+    margin-bottom: 20px;
+  }
+  .search-wrap svg {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-dim);
+    pointer-events: none;
+  }
+  #searchInput {
+    width: 100%;
+    padding: 14px 16px 14px 46px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: 'Sora', sans-serif;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s, background 0.2s;
+    backdrop-filter: blur(12px);
+  }
+  #searchInput:focus {
+    border-color: var(--border-active);
+    background: rgba(255,255,255,0.07);
+  }
+  #searchInput::placeholder { color: var(--text-dimmer); }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 28px;
+  }
+  .tab {
+    padding: 7px 16px;
+    border-radius: 20px;
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-dim);
+    transition: all 0.18s;
+    letter-spacing: 0.2px;
+  }
+  .tab:hover { color: var(--text); border-color: var(--border-active); }
+  .tab.active {
+    background: rgba(91,200,250,0.12);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .tab[data-tab="New"] {
+    border-color: rgba(165,214,167,0.3);
+    color: var(--green);
+  }
+  .tab[data-tab="New"].active {
+    background: rgba(165,214,167,0.1);
+    border-color: var(--green);
+  }
+
+  /* Home screen */
+  #homeScreen { display: block; }
+  .home-section-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dimmer);
+    margin-bottom: 14px;
+    font-weight: 500;
+  }
+  .quick-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+  .quick-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    cursor: pointer;
+    transition: all 0.2s;
+    backdrop-filter: blur(12px);
+    text-decoration: none;
+    display: block;
+  }
+  .quick-card:hover {
+    background: var(--surface-hover);
+    border-color: var(--border-active);
+    transform: translateY(-2px);
+  }
+  .quick-card-icon { font-size: 22px; margin-bottom: 10px; }
+  .quick-card-name { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .quick-card-count { font-size: 12px; color: var(--text-dim); }
+
+  /* Index links */
+  .index-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+    margin-bottom: 32px;
+  }
+  .index-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    color: var(--text-dim);
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.18s;
+  }
+  .index-link:hover { color: var(--accent); border-color: var(--accent); }
+
+  /* File grid */
+  #fileGrid { display: none; }
+  #fileGrid.visible { display: block; }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .section-title { font-size: 14px; font-weight: 600; color: var(--text-dim); }
+  .section-count {
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-dimmer);
+  }
+
+  /* Group headers for Business/Litigation */
+  .group-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dimmer);
+    padding: 16px 0 8px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 12px;
+    font-weight: 600;
+  }
+
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .file-card-wrap {
+    position: relative;
+    display: block;
+  }
+  .file-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 14px 16px;
+    text-decoration: none;
+    display: block;
+    transition: all 0.18s;
+    backdrop-filter: blur(8px);
+    padding-right: 38px; /* room for edit btn */
+  }
+  .file-card:hover {
+    background: var(--surface-hover);
+    border-color: var(--border-active);
+    transform: translateY(-1px);
+  }
+  .file-card-name {
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .file-card-meta {
+    font-size: 11px;
+    color: var(--text-dimmer);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .file-card-badge {
+    display: inline-block;
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 20px;
+    margin-top: 6px;
+    font-weight: 500;
+  }
+
+  /* Edit button on card */
+  .card-edit-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 24px; height: 24px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.05);
+    color: var(--text-dimmer);
+    font-size: 12px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+    z-index: 2;
+  }
+  .card-edit-btn:hover {
+    background: rgba(255,255,255,0.1);
+    color: var(--text);
+    border-color: var(--border-active);
+  }
+
+  /* Inline edit panel */
+  .card-edit-panel {
+    display: none;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid var(--border-active);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+    margin-top: 4px;
+    backdrop-filter: blur(12px);
+  }
+  .card-edit-panel.open { display: block; }
+  .card-edit-panel label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-dimmer);
+    display: block;
+    margin-bottom: 4px;
+    margin-top: 10px;
+  }
+  .card-edit-panel label:first-of-type { margin-top: 0; }
+  .card-edit-select {
+    width: 100%;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    color: var(--text);
+    font-family: 'Sora', sans-serif;
+    font-size: 12px;
+    padding: 7px 10px;
+    outline: none;
+    cursor: pointer;
+  }
+  .card-edit-select:focus { border-color: var(--border-active); }
+  .card-edit-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+  }
+  .card-edit-save {
+    flex: 1;
+    padding: 7px;
+    border-radius: 7px;
+    border: none;
+    background: rgba(91,200,250,0.15);
+    color: var(--accent);
+    font-family: 'Sora', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .card-edit-save:hover { background: rgba(91,200,250,0.25); }
+  .card-edit-cancel {
+    padding: 7px 12px;
+    border-radius: 7px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-dimmer);
+    font-family: 'Sora', sans-serif;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .card-edit-cancel:hover { color: var(--text); border-color: var(--border-active); }
+
+  /* Badge colors by category */
+  .badge-Business  { background: rgba(91,200,250,0.12);  color: var(--accent); }
+  .badge-Deals     { background: rgba(255,204,128,0.12); color: var(--orange); }
+  .badge-Litigation{ background: rgba(239,154,154,0.12); color: var(--red); }
+  .badge-Family    { background: rgba(179,157,219,0.12); color: var(--accent2); }
+  .badge-Friends   { background: rgba(128,203,196,0.12); color: var(--accent3); }
+  .badge-Groups    { background: rgba(165,214,167,0.12); color: var(--green); }
+  .badge-Review    { background: rgba(255,204,128,0.12); color: var(--orange); }
+  .badge-Unmatched { background: rgba(255,255,255,0.06); color: var(--text-dimmer); }
+  .badge-Personal  { background: rgba(179,157,219,0.12); color: var(--accent2); }
+
+  /* Empty state */
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-dimmer);
+  }
+  .empty-state-icon { font-size: 40px; margin-bottom: 12px; }
+  .empty-state-text { font-size: 14px; }
+
+  /* Loading */
+  .loading {
+    text-align: center;
+    padding: 60px;
+    color: var(--text-dimmer);
+    font-size: 13px;
+  }
+  .spinner {
+    width: 28px; height: 28px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin: 0 auto 14px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Intake panel */
+  #intakePanel { display: none; }
+  #intakePanel.visible { display: block; }
+  .intake-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .intake-header h2 { font-size: 16px; font-weight: 600; }
+  .intake-badge {
+    background: rgba(165,214,167,0.12);
+    color: var(--green);
+    font-size: 11px;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-weight: 500;
+  }
+  .intake-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+  }
+  .intake-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+  }
+  .intake-filename {
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--accent);
+  }
+  .intake-select {
+    width: 100%;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-family: 'Sora', sans-serif;
+    font-size: 13px;
+    padding: 8px 12px;
+    margin-bottom: 8px;
+    outline: none;
+    cursor: pointer;
+  }
+  .intake-select:focus { border-color: var(--border-active); }
+  .intake-btn {
+    width: 100%;
+    padding: 9px;
+    border-radius: var(--radius-sm);
+    border: none;
+    background: rgba(91,200,250,0.12);
+    color: var(--accent);
+    font-family: 'Sora', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.18s;
+  }
+  .intake-btn:hover { background: rgba(91,200,250,0.2); }
+  .intake-empty {
+    text-align: center;
+    padding: 50px 20px;
+    color: var(--text-dimmer);
+  }
+  .new-deal-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 24px;
+  }
+  .new-deal-input {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-family: 'Sora', sans-serif;
+    font-size: 13px;
+    padding: 10px 14px;
+    outline: none;
+  }
+  .new-deal-input:focus { border-color: var(--border-active); }
+  .new-deal-btn {
+    padding: 10px 20px;
+    background: rgba(165,214,167,0.1);
+    border: 1px solid rgba(165,214,167,0.3);
+    border-radius: var(--radius-sm);
+    color: var(--green);
+    font-family: 'Sora', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.18s;
+  }
+  .new-deal-btn:hover { background: rgba(165,214,167,0.18); }
+
+  /* Group cards */
+  .cards-grid--groups {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
+  .file-card--group {
+    padding: 16px;
+  }
+  .group-card-icon {
+    font-size: 20px;
+    margin-bottom: 8px;
+  }
+  .group-participants {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 6px;
+  }
+  .group-participant {
+    font-size: 10.5px;
+    padding: 2px 8px;
+    background: rgba(128,203,196,0.1);
+    color: var(--accent3);
+    border-radius: 20px;
+    border: 1px solid rgba(128,203,196,0.2);
+    white-space: nowrap;
+  }
+
+  /* Error banner */
+  .error-banner {
+    background: rgba(239,154,154,0.1);
+    border: 1px solid rgba(239,154,154,0.3);
+    border-radius: var(--radius-sm);
+    padding: 12px 16px;
+    font-size: 13px;
+    color: var(--red);
+    margin-bottom: 20px;
+    display: none;
+  }
+  .error-banner.visible { display: block; }
+
+  /* Responsive */
+  @media (max-width: 600px) {
+    .stats-row { grid-template-columns: repeat(2, 1fr); }
+    .tabs { gap: 4px; }
+    .tab { padding: 6px 12px; font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-mesh"></div>
+<div class="bg-mesh-mid"></div>
+
+<div id="app">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-logo">
+      <div class="logo-icon">📁</div>
+      <div>
+        <div class="logo-text">Seifosphere Archive</div>
+        <div class="logo-sub">iMessage Export Dashboard</div>
+      </div>
+    </div>
+    <div class="header-status">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">localhost:8765</span>
+    </div>
+  </div>
+
+  <!-- Error banner -->
+  <div class="error-banner" id="errorBanner">
+    ⚠️ Cannot reach server at localhost:8765. Make sure it's running: <code>python3 /Users/sizzle/imessage_export_IPHONE/server.py</code>
+  </div>
+
+  <!-- Search -->
+  <div class="search-wrap">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+    </svg>
+    <input type="text" id="searchInput" placeholder="Search by name, deal, or category…" autocomplete="off" spellcheck="false">
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" data-tab="Home">Home</button>
+    <button class="tab" data-tab="Business">Business</button>
+    <button class="tab" data-tab="Deals">Deals</button>
+    <button class="tab" data-tab="Litigation">Litigation</button>
+    <button class="tab" data-tab="Family">Family</button>
+    <button class="tab" data-tab="Friends">Friends</button>
+    <button class="tab" data-tab="Groups">Groups</button>
+    <button class="tab" data-tab="Review">Review</button>
+    <button class="tab" data-tab="Unmatched">Unmatched</button>
+    <button class="tab" data-tab="New">⊕ New Messages</button>
+  </div>
+
+  <!-- Home screen -->
+  <div id="homeScreen">
+    <div class="home-section-title">Quick Access</div>
+    <div class="quick-grid" id="quickGrid">
+      <div class="quick-card" onclick="activateTab('Business')">
+        <div class="quick-card-icon">💼</div>
+        <div class="quick-card-name">Business</div>
+        <div class="quick-card-count" id="qcBusiness">Loading…</div>
+      </div>
+      <div class="quick-card" onclick="activateTab('Deals')">
+        <div class="quick-card-icon">🤝</div>
+        <div class="quick-card-name">Deals</div>
+        <div class="quick-card-count" id="qcDeals">12 deal folders</div>
+      </div>
+      <div class="quick-card" onclick="activateTab('Litigation')">
+        <div class="quick-card-icon">⚖️</div>
+        <div class="quick-card-name">Litigation</div>
+        <div class="quick-card-count" id="qcLitigation">Loading…</div>
+      </div>
+      <div class="quick-card" onclick="activateTab('Family')">
+        <div class="quick-card-icon">👨‍👩‍👧</div>
+        <div class="quick-card-name">Family</div>
+        <div class="quick-card-count" id="qcFamily">Loading…</div>
+      </div>
+      <div class="quick-card" onclick="activateTab('Friends')">
+        <div class="quick-card-icon">🙌</div>
+        <div class="quick-card-name">Friends</div>
+        <div class="quick-card-count" id="qcFriends">Loading…</div>
+      </div>
+      <div class="quick-card" onclick="activateTab('Groups')">
+        <div class="quick-card-icon">💬</div>
+        <div class="quick-card-name">Groups</div>
+        <div class="quick-card-count" id="qcGroups">Loading…</div>
+      </div>
+      <div class="quick-card" onclick="activateTab('Review')">
+        <div class="quick-card-icon">🔍</div>
+        <div class="quick-card-name">Review Queue</div>
+        <div class="quick-card-count" id="qcReview">Loading…</div>
+      </div>
+      <div class="quick-card" onclick="activateTab('Unmatched')">
+        <div class="quick-card-icon">❓</div>
+        <div class="quick-card-name">Unmatched</div>
+        <div class="quick-card-count" id="qcUnmatched">Loading…</div>
+      </div>
+    </div>
+
+    <div class="home-section-title">Indexes</div>
+    <div class="index-grid">
+      <a class="index-link" href="http://localhost:8765/INDEX_BUSINESS.html">📋 Business &amp; Deals Index</a>
+      <a class="index-link" href="http://localhost:8765/INDEX_PERSONAL.html">👤 Personal Archive Index</a>
+      <a class="index-link" href="http://localhost:8765/INDEX_LITIGATION.html">⚖️ Litigation Index</a>
+      <a class="index-link" href="http://localhost:8765/INDEX_REVIEW.html">🔍 Review Queue Index</a>
+    </div>
+  </div>
+
+  <!-- File grid -->
+  <div id="fileGrid">
+    <div class="section-header">
+      <span class="section-title" id="gridTitle">Files</span>
+      <span class="section-count" id="gridCount"></span>
+    </div>
+    <div id="gridContent">
+      <div class="loading"><div class="spinner"></div>Loading files…</div>
+    </div>
+  </div>
+
+  <!-- Intake panel -->
+  <div id="intakePanel">
+    <div class="intake-header">
+      <h2>New Messages</h2>
+      <span class="intake-badge" id="intakeBadge">Scanning…</span>
+    </div>
+    <div id="intakeContent">
+      <div class="loading"><div class="spinner"></div>Scanning Downloads…</div>
+    </div>
+    <div class="new-deal-row">
+      <input class="new-deal-input" type="text" id="newDealInput" placeholder="Create new deal folder (e.g. Apex_HVAC)">
+      <button class="new-deal-btn" onclick="createDeal()">+ Create Deal</button>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+const BASE = 'http://localhost:8765';
+let allFiles = [];
+let deals = [];
+let activeTab = 'Home';
+let searchQuery = '';
+
+// ─── GHA / SFP / Deal grouping logic ─────────────────────────────────────────
+const GHA_PARTNERS = ['Eric Seifert','Gregg Lerman','Josh Gladtke','Brian Hastings','Robert Fleisher'];
+const SFP_CONTACTS = ['Freddy Silberstein','Brian Cohen','Adam Allison'];
+const DEAL_NAMES   = ['Air Experts','Elite Roofing','Iowa Mechanical','JSP Home Services',
+                      'GRC Mechanical','Academy Air','A-General Plumbing','KH Home',
+                      'Live Free HCE','LTPS','T. Webber','CMS'];
+
+const LITIGATION_HASTINGS = ['Hastings_Gilmore'];
+const LITIGATION_SFP      = ['Silberstein_SFP'];
+
+// ─── Boot ─────────────────────────────────────────────────────────────────────
+async function init() {
+  await checkStatus();
+  await loadFiles();
+  setupSearch();
+  setupTabs();
+}
+
+async function checkStatus() {
+  try {
+    const r = await fetch(`${BASE}/api/status`, { signal: AbortSignal.timeout(3000) });
+    if (r.ok) {
+      document.getElementById('statusDot').classList.remove('offline');
+      document.getElementById('statusText').textContent = 'Server online';
+    }
+  } catch {
+    document.getElementById('statusDot').classList.add('offline');
+    document.getElementById('statusText').textContent = 'Server offline';
+    document.getElementById('errorBanner').classList.add('visible');
+  }
+}
+
+async function loadFiles() {
+  try {
+    const r = await fetch(`${BASE}/api/files`);
+    const data = await r.json();
+    allFiles = data.files || [];
+    deals = data.deals || [];
+    updateStats();
+    updateQuickCards();
+  } catch {
+    // Server offline — show degraded state, stats stay as "—"
+  }
+}
+
+function updateStats() {
+  const unmatched = allFiles.filter(f => f.category === 'Unmatched').length;
+  document.getElementById('statTotal').textContent = allFiles.length || '—';
+  document.getElementById('statUnmatched').textContent = unmatched || '—';
+}
+
+function updateQuickCards() {
+  const cats = ['Business','Litigation','Family','Friends','Groups','Review','Unmatched'];
+  cats.forEach(cat => {
+    const count = allFiles.filter(f => f.category === cat).length;
+    const el = document.getElementById('qc' + cat);
+    if (el) el.textContent = count + ' file' + (count !== 1 ? 's' : '');
+  });
+  const dealCount = allFiles.filter(f => f.category === 'Deals').length;
+  const el = document.getElementById('qcDeals');
+  if (el) el.textContent = `${dealCount} files · 12 folders`;
+}
+
+// ─── Search ───────────────────────────────────────────────────────────────────
+function setupSearch() {
+  const input = document.getElementById('searchInput');
+  input.addEventListener('input', () => {
+    searchQuery = input.value.trim().toLowerCase();
+    if (searchQuery.length > 0) {
+      showFileGrid('Search results for "' + input.value.trim() + '"', getFilteredFiles());
+      // Deactivate tab highlight
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    } else {
+      if (activeTab === 'Home') {
+        showHome();
+      } else {
+        renderTab(activeTab);
+      }
+    }
+  });
+}
+
+function getFilteredFiles(category) {
+  let files = allFiles;
+  if (category && category !== 'All') {
+    files = files.filter(f => f.category === category);
+  }
+  if (searchQuery) {
+    files = files.filter(f =>
+      (f.name || '').toLowerCase().includes(searchQuery) ||
+      (f.category || '').toLowerCase().includes(searchQuery) ||
+      (f.subfolder || '').toLowerCase().includes(searchQuery) ||
+      (f.path || '').toLowerCase().includes(searchQuery)
+    );
+  }
+  return files;
+}
+
+// ─── Tabs ─────────────────────────────────────────────────────────────────────
+function setupTabs() {
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      const t = tab.dataset.tab;
+      activateTab(t);
+    });
+  });
+}
+
+function activateTab(t) {
+  activeTab = t;
+  searchQuery = '';
+  document.getElementById('searchInput').value = '';
+  document.querySelectorAll('.tab').forEach(el => {
+    el.classList.toggle('active', el.dataset.tab === t);
+  });
+  if (t === 'Home') { showHome(); return; }
+  if (t === 'New')  { showIntake(); return; }
+  renderTab(t);
+}
+
+function showHome() {
+  document.getElementById('homeScreen').style.display = 'block';
+  document.getElementById('fileGrid').classList.remove('visible');
+  document.getElementById('intakePanel').classList.remove('visible');
+}
+
+function renderTab(category) {
+  document.getElementById('homeScreen').style.display = 'none';
+  document.getElementById('intakePanel').classList.remove('visible');
+  const files = getFilteredFiles(category);
+  const title = category + ' (' + files.length + ')';
+  if (category === 'Business') {
+    showFileGrid(title, files, 'business');
+  } else if (category === 'Litigation') {
+    showFileGrid(title, files, 'litigation');
+  } else if (category === 'Groups') {
+    showFileGrid(title, files, 'groups');
+  } else {
+    showFileGrid(title, files);
+  }
+}
+
+// ─── File Grid ────────────────────────────────────────────────────────────────
+function showFileGrid(title, files, groupMode) {
+  document.getElementById('homeScreen').style.display = 'none';
+  document.getElementById('intakePanel').classList.remove('visible');
+  const grid = document.getElementById('fileGrid');
+  grid.classList.add('visible');
+  document.getElementById('gridTitle').textContent = title;
+  document.getElementById('gridCount').textContent = files.length + ' files';
+
+  const content = document.getElementById('gridContent');
+
+  if (files.length === 0) {
+    content.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🔍</div><div class="empty-state-text">No files found</div></div>`;
+    return;
+  }
+
+  if (groupMode === 'business') {
+    content.innerHTML = renderBusinessGrouped(files);
+  } else if (groupMode === 'litigation') {
+    content.innerHTML = renderLitigationGrouped(files);
+  } else if (groupMode === 'groups') {
+    content.innerHTML = renderCards(files, true);
+  } else {
+    content.innerHTML = renderCards(files);
+  }
+}
+
+function renderCards(files, isGroups) {
+  if (!files.length) return '';
+  if (isGroups) {
+    return `<div class="cards-grid cards-grid--groups">${files.map(f => groupCard(f)).join('')}</div>`;
+  }
+  return `<div class="cards-grid">${files.map(f => fileCard(f)).join('')}</div>`;
+}
+
+function fileCard(f) {
+  const href = f.path ? `${BASE}/${f.path}` : '#';
+  const name = f.name || f.path?.split('/').pop()?.replace('.html','') || 'Unknown';
+  const sub = f.subfolder ? `<div class="file-card-meta">${f.subfolder}</div>` : '';
+  const badge = `<span class="file-card-badge badge-${f.category}">${f.category}</span>`;
+  const uid = btoa(f.path || name).replace(/[^a-zA-Z0-9]/g,'').substring(0,16);
+
+  const catOptions = ['Business','Deals','Litigation','Family','Friends','Groups','Personal','_review','_unmatched']
+    .map(c => `<option value="${c}" ${f.category === c || (c==='_review' && f.category==='Review') ? 'selected' : ''}>${c}</option>`).join('');
+
+  const dealOptions = `<option value="">— none —</option>` +
+    (deals.length ? deals.map(d => `<option value="${d}" ${f.subfolder===d ? 'selected' : ''}>${d}</option>`).join('') : '');
+
+  const litOptions = `<option value="">— none —</option>
+    <option value="Hastings_Gilmore" ${f.subfolder==='Hastings_Gilmore' ? 'selected' : ''}>Hastings_Gilmore</option>
+    <option value="Silberstein_SFP" ${f.subfolder==='Silberstein_SFP' ? 'selected' : ''}>Silberstein_SFP</option>`;
+
+  // Determine initial subfolder options based on current category
+  const initialCat = f.category || 'Business';
+  const initialSubOptions = initialCat === 'Litigation' ? litOptions :
+                            initialCat === 'Deals'      ? dealOptions : '';
+  const showSub = ['Deals','Litigation'].includes(initialCat);
+
+  return `<div class="file-card-wrap">
+    <a class="file-card" href="${href}" target="_blank">
+      <div class="file-card-name">${name}</div>
+      ${sub}
+      ${badge}
+    </a>
+    <button class="card-edit-btn" onclick="toggleEdit('${uid}')" title="Edit location">✎</button>
+    <div class="card-edit-panel" id="edit_${uid}">
+      <label>Category</label>
+      <select class="card-edit-select" id="ecat_${uid}" onchange="updateSubfolder('${uid}',this.value)">${catOptions}</select>
+      <div id="esub_wrap_${uid}" style="${showSub ? '' : 'display:none'}">
+        <label>Subfolder</label>
+        <select class="card-edit-select" id="edeal_${uid}">${initialSubOptions}</select>
+      </div>
+      <div class="card-edit-actions">
+        <button class="card-edit-save" onclick="saveMove('${uid}','${f.path}','${name}')">Move →</button>
+        <button class="card-edit-cancel" onclick="toggleEdit('${uid}')">Cancel</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function groupCard(f) {
+  const href = f.path ? `${BASE}/${f.path}` : '#';
+  const raw = f.name || f.path?.split('/').pop()?.replace('.html','') || 'Unknown';
+  // Parse "Group Chat - Alice, Bob, Carol" or just use raw name
+  let title = raw;
+  let participants = '';
+  const dashIdx = raw.indexOf(' - ');
+  if (dashIdx !== -1) {
+    title = raw.substring(0, dashIdx).trim();
+    const names = raw.substring(dashIdx + 3).split(/[,&+]/).map(s => s.trim()).filter(Boolean);
+    participants = names.map(n => `<span class="group-participant">${n}</span>`).join('');
+  }
+  // Count approximate participant tokens from filename
+  const memberCount = raw.split(/[,&+]/).length;
+  return `<a class="file-card file-card--group" href="${href}" target="_blank">
+    <div class="group-card-icon">💬</div>
+    <div class="file-card-name">${title}</div>
+    ${participants ? `<div class="group-participants">${participants}</div>` : ''}
+    <div class="file-card-meta" style="margin-top:6px">${memberCount > 1 ? memberCount + ' participants' : 'Group thread'}</div>
+  </a>`;
+}
+
+function renderBusinessGrouped(files) {
+  // Group: GHA Partners, SFP Contacts, then by deal name, then Other
+  const groups = {
+    'GHA Partners': [],
+    'SFP Contacts': [],
+  };
+  // Build deal groups
+  DEAL_NAMES.forEach(d => { groups[d] = []; });
+  groups['Other Business'] = [];
+
+  files.forEach(f => {
+    const name = f.name || '';
+    if (GHA_PARTNERS.some(p => name.includes(p))) {
+      groups['GHA Partners'].push(f);
+    } else if (SFP_CONTACTS.some(p => name.includes(p))) {
+      groups['SFP Contacts'].push(f);
+    } else {
+      // Try to match deal by subfolder or name
+      let matched = false;
+      for (const d of DEAL_NAMES) {
+        const slug = d.replace(/\s+/g,'_').replace(/\./g,'').replace(/-/g,'_');
+        if ((f.subfolder || '').includes(slug) || (f.subfolder || '').includes(d) || name.includes(d)) {
+          groups[d].push(f);
+          matched = true;
+          break;
+        }
+      }
+      if (!matched) groups['Other Business'].push(f);
+    }
+  });
+
+  let html = '';
+  for (const [label, items] of Object.entries(groups)) {
+    if (!items.length) continue;
+    html += `<div class="group-label">${label}</div><div class="cards-grid">${items.map(fileCard).join('')}</div>`;
+  }
+  return html || '<div class="empty-state"><div class="empty-state-icon">💼</div><div class="empty-state-text">No business files found</div></div>';
+}
+
+function renderLitigationGrouped(files) {
+  const hastings = files.filter(f => (f.subfolder || '').includes('Hastings_Gilmore'));
+  const sfp      = files.filter(f => (f.subfolder || '').includes('Silberstein_SFP'));
+  const other    = files.filter(f => !hastings.includes(f) && !sfp.includes(f));
+
+  let html = '';
+  if (hastings.length) html += `<div class="group-label">Matter 1 · Hastings / Gilmore</div><div class="cards-grid">${hastings.map(fileCard).join('')}</div>`;
+  if (sfp.length)      html += `<div class="group-label">Matter 2 · Silberstein SFP</div><div class="cards-grid">${sfp.map(fileCard).join('')}</div>`;
+  if (other.length)    html += `<div class="group-label">Other</div><div class="cards-grid">${other.map(fileCard).join('')}</div>`;
+  return html || '<div class="empty-state"><div class="empty-state-icon">⚖️</div><div class="empty-state-text">No litigation files found</div></div>';
+}
+
+// ─── Intake Panel ─────────────────────────────────────────────────────────────
+async function showIntake() {
+  document.getElementById('homeScreen').style.display = 'none';
+  document.getElementById('fileGrid').classList.remove('visible');
+  document.getElementById('intakePanel').classList.add('visible');
+
+  try {
+    const r = await fetch(`${BASE}/api/new-files`);
+    const data = await r.json();
+    const newFiles = data.files || [];
+    const dealsR = await fetch(`${BASE}/api/deals`);
+    const dealsData = await dealsR.json();
+    const dealList = dealsData.deals || [];
+
+    document.getElementById('intakeBadge').textContent = newFiles.length + ' pending';
+
+    const categoryOptions = ['Business','Deals','Litigation','Family','Friends','Groups','Personal','_review']
+      .map(c => `<option value="${c}">${c}</option>`).join('');
+    const dealOptions = dealList.map(d => `<option value="Deals/${d}">${d}</option>`).join('');
+
+    if (!newFiles.length) {
+      document.getElementById('intakeContent').innerHTML = `<div class="intake-empty">✅ No new files in Downloads</div>`;
+      return;
+    }
+
+    document.getElementById('intakeContent').innerHTML = `<div class="intake-grid">${newFiles.map(f => `
+      <div class="intake-card" id="intake_${f.id}">
+        <div class="intake-contact-name" style="font-size:14px;font-weight:600;margin-bottom:4px;color:var(--text)">${f.display}</div>
+        <div class="intake-filename">${f.name}</div>
+        <select class="intake-select" id="cat_${f.id}">
+          <option value="">— Select category —</option>
+          ${categoryOptions}
+          <optgroup label="Deals">${dealOptions}</optgroup>
+        </select>
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <button class="intake-btn" style="flex:1" onclick="moveFile('${f.id}','${f.name}')">Move →</button>
+          <button class="intake-btn" style="flex:0;padding:9px 12px;background:rgba(255,255,255,0.05);color:var(--text-dimmer)" onclick="skipFile('${f.id}','${f.name}')" title="Skip — not relevant">✕</button>
+        </div>
+      </div>`).join('')}</div>`;
+  } catch {
+    document.getElementById('intakeContent').innerHTML = `<div class="intake-empty">Cannot reach server. Start it with:<br><code>python3 /Users/sizzle/imessage_export_IPHONE/server.py</code></div>`;
+    document.getElementById('intakeBadge').textContent = 'offline';
+  }
+}
+
+async function moveFile(id, name) {
+  const cat = document.getElementById('cat_' + id)?.value;
+  if (!cat) { alert('Please select a category first.'); return; }
+  try {
+    const r = await fetch(`${BASE}/api/move`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ file: name, destination: cat })
+    });
+    if (r.ok) {
+      document.getElementById('intake_' + id)?.remove();
+      await loadFiles(); // Refresh stats
+    }
+  } catch {
+    alert('Move failed. Server may be offline.');
+  }
+}
+
+async function createDeal() {
+  const name = document.getElementById('newDealInput').value.trim();
+  if (!name) return;
+  try {
+    const r = await fetch(`${BASE}/api/create-deal`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ name })
+    });
+    if (r.ok) {
+      document.getElementById('newDealInput').value = '';
+      alert(`Deal folder "${name}" created.`);
+    }
+  } catch {
+    alert('Failed to create deal. Server may be offline.');
+  }
+}
+
+// ─── Card Edit / Move ─────────────────────────────────────────────────────────
+
+function updateSubfolder(uid, cat) {
+  const wrap = document.getElementById('esub_wrap_' + uid);
+  const sel  = document.getElementById('edeal_' + uid);
+  if (!wrap || !sel) return;
+
+  if (cat === 'Deals') {
+    wrap.style.display = '';
+    sel.innerHTML = `<option value="">— none —</option>` +
+      deals.map(d => `<option value="${d}">${d}</option>`).join('');
+  } else if (cat === 'Litigation') {
+    wrap.style.display = '';
+    sel.innerHTML = `<option value="">— none —</option>
+      <option value="Hastings_Gilmore">Hastings_Gilmore</option>
+      <option value="Silberstein_SFP">Silberstein_SFP</option>`;
+  } else {
+    wrap.style.display = 'none';
+    sel.innerHTML = '';
+  }
+}
+
+async function skipFile(id, name) {
+  // Delete from Downloads so it doesn't reappear
+  try {
+    await fetch(`${BASE}/api/skip`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ file: name })
+    });
+  } catch {}
+  // Remove card from UI regardless
+  document.getElementById('intake_' + id)?.remove();
+}
+
+function toggleEdit(uid) {
+  const panel = document.getElementById('edit_' + uid);
+  if (!panel) return;
+  panel.classList.toggle('open');
+}
+
+async function saveMove(uid, currentPath, filename) {
+  const cat   = document.getElementById('ecat_'  + uid)?.value;
+  if (!cat) { alert('Pick a category.'); return; }
+
+  // Build destination
+  let destination = cat;
+  const sub = document.getElementById('edeal_' + uid)?.value;
+  if (sub) destination = `${cat}/${sub}`;
+
+  try {
+    const r = await fetch(`${BASE}/api/move-archived`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ path: currentPath, destination })
+    });
+    if (r.ok) {
+      // Refresh file list and re-render current tab
+      await loadFiles();
+      renderTab(activeTab);
+    } else {
+      const err = await r.json();
+      alert('Move failed: ' + (err.error || 'unknown error'));
+    }
+  } catch {
+    alert('Move failed. Server may be offline.');
+  }
+}
+
+// ─── Start ────────────────────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>

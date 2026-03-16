@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.seifosphere.sync</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/sizzle/imessage_export_IPHONE/seifosphere_sync.sh</string>
+    </array>
+
+    <!-- Run daily at 8:00 AM -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>8</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <!-- Run on load and after wake if scheduled time was missed -->
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StartOnMount</key>
+    <true/>}
+
+    <key>StandardOutPath</key>
+    <string>/Users/sizzle/imessage_export_IPHONE/sync.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/sizzle/imessage_export_IPHONE/sync_error.log</string>
+</dict>
+</plist>
