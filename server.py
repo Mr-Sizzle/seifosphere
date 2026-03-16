@@ -71,24 +71,19 @@ def get_deals():
 def get_contact_map():
     """
     Builds a dict mapping phone number digits → contact name.
-    First checks macOS AddressBook, then falls back to iMessage chat.db display names.
+    Searches ALL AddressBook databases, then falls back to iMessage chat.db.
     """
     import glob
     contacts = {}
 
-    # ── 1. AddressBook ────────────────────────────────────────────────────────
-    patterns = [
-        str(Path.home() / "Library/Application Support/AddressBook/Sources/*/AddressBook-v22.abcddb"),
-        str(Path.home() / "Library/Application Support/AddressBook/AddressBook-v22.abcddb"),
-    ]
-    db_path = None
-    for pattern in patterns:
-        matches = glob.glob(pattern)
-        if matches:
-            db_path = matches[0]
-            break
+    # ── 1. All AddressBook databases ──────────────────────────────────────────
+    db_paths = glob.glob(str(Path.home() / "Library/Application Support/AddressBook/Sources/*/AddressBook-v22.abcddb"))
+    # Also include the root one
+    root_db = str(Path.home() / "Library/Application Support/AddressBook/AddressBook-v22.abcddb")
+    if Path(root_db).exists():
+        db_paths.insert(0, root_db)
 
-    if db_path:
+    for db_path in db_paths:
         try:
             import sqlite3 as _sqlite3
             conn = _sqlite3.connect(db_path)
@@ -105,7 +100,7 @@ def get_contact_map():
                     continue
                 name_parts = [x for x in [first, last] if x]
                 name = ' '.join(name_parts) if name_parts else None
-                if name:
+                if name and digits not in contacts:
                     contacts[digits] = name
                     if len(digits) > 10:
                         contacts[digits[-10:]] = name
@@ -120,7 +115,6 @@ def get_contact_map():
             import sqlite3 as _sqlite3
             conn = _sqlite3.connect(str(chat_db))
             cur = conn.cursor()
-            # Get display names from chat table (group chats and named threads)
             cur.execute("""
                 SELECT h.id, h.uncanonicalized_id
                 FROM handle h
@@ -130,13 +124,11 @@ def get_contact_map():
                 digits = ''.join(c for c in (handle_id or '') if c.isdigit())
                 if not digits or digits in contacts:
                     continue
-                # Use uncanonicalized_id if it looks like a name (has letters)
                 if uncanon and any(c.isalpha() for c in uncanon):
                     contacts[digits] = uncanon
                     if len(digits) > 10:
                         contacts[digits[-10:]] = uncanon
 
-            # Also check chat display names
             cur.execute("""
                 SELECT c.chat_identifier, c.display_name
                 FROM chat c
