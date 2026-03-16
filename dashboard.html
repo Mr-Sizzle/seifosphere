@@ -891,7 +891,8 @@ function renderTab(category) {
   } else if (category === 'Groups') {
     showFileGrid(title, files, 'groups');
   } else {
-    showFileGrid(title, files);
+    // All other tabs — plain cards, no grouping
+    showFileGrid(title, files, 'plain');
   }
 }
 
@@ -918,7 +919,7 @@ function showFileGrid(title, files, groupMode) {
   } else if (groupMode === 'groups') {
     content.innerHTML = renderCards(files, true);
   } else {
-    content.innerHTML = renderCards(files);
+    content.innerHTML = renderCards(files, false);
   }
 }
 
@@ -936,6 +937,9 @@ function fileCard(f) {
   const sub = f.subfolder ? `<div class="file-card-meta">${f.subfolder}</div>` : '';
   const badge = `<span class="file-card-badge badge-${f.category}">${f.category}</span>`;
   const uid = btoa(f.path || name).replace(/[^a-zA-Z0-9]/g,'').substring(0,16);
+  // Show rename icon if name looks like a phone number
+  const isNumber = /^\+?\d[\d\s\+,]+$/.test(name.replace('.html',''));
+  const renameBtn = isNumber ? `<button class="card-rename-btn" onclick="event.preventDefault();toggleRename('${uid}')" title="Add name">✏️</button>` : '';
 
   const catOptions = ['Business','Deals','Litigation','Family','Friends','Groups','Personal','_review','_unmatched']
     .map(c => `<option value="${c}" ${f.category === c || (c==='_review' && f.category==='Review') ? 'selected' : ''}>${c}</option>`).join('');
@@ -947,7 +951,6 @@ function fileCard(f) {
     <option value="Hastings_Gilmore" ${f.subfolder==='Hastings_Gilmore' ? 'selected' : ''}>Hastings_Gilmore</option>
     <option value="Silberstein_SFP" ${f.subfolder==='Silberstein_SFP' ? 'selected' : ''}>Silberstein_SFP</option>`;
 
-  // Determine initial subfolder options based on current category
   const initialCat = f.category || 'Business';
   const initialSubOptions = initialCat === 'Litigation' ? litOptions :
                             initialCat === 'Deals'      ? dealOptions : '';
@@ -955,12 +958,17 @@ function fileCard(f) {
 
   return `<div class="file-card-wrap">
     <a class="file-card" href="${href}" target="_blank">
-      <div class="file-card-name">${name}</div>
+      <div class="file-card-name">${name}${renameBtn}</div>
       ${sub}
       ${badge}
     </a>
     <button class="card-edit-btn" onclick="toggleEdit('${uid}')" title="Edit location">✎</button>
     <div class="card-edit-panel" id="edit_${uid}">
+      ${isNumber ? `<label>Display Name</label>
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <input class="card-edit-select" type="text" id="ename_${uid}" placeholder="e.g. John Smith" style="flex:1">
+        <button class="card-edit-save" style="flex:0;padding:7px 12px;white-space:nowrap" onclick="saveName('${uid}','${f.path}')">Save Name</button>
+      </div>` : ''}
       <label>Category</label>
       <select class="card-edit-select" id="ecat_${uid}" onchange="updateSubfolder('${uid}',this.value)">${catOptions}</select>
       <div id="esub_wrap_${uid}" style="${showSub ? '' : 'display:none'}">
@@ -1130,6 +1138,32 @@ async function createDeal() {
 }
 
 // ─── Card Edit / Move ─────────────────────────────────────────────────────────
+
+async function saveName(uid, currentPath) {
+  const newName = document.getElementById('ename_' + uid)?.value.trim();
+  if (!newName) { alert('Enter a name first.'); return; }
+  try {
+    const r = await fetch(`${BASE}/api/rename`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ path: currentPath, name: newName })
+    });
+    if (r.ok) {
+      await loadFiles();
+      renderTab(activeTab);
+    } else {
+      const err = await r.json();
+      alert('Rename failed: ' + (err.error || 'unknown'));
+    }
+  } catch {
+    alert('Rename failed. Server may be offline.');
+  }
+}
+
+function toggleRename(uid) {
+  toggleEdit(uid);
+  setTimeout(() => document.getElementById('ename_' + uid)?.focus(), 50);
+}
 
 function updateSubfolder(uid, cat) {
   const wrap = document.getElementById('esub_wrap_' + uid);

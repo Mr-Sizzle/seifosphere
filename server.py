@@ -314,6 +314,28 @@ class ArchiveHandler(http.server.SimpleHTTPRequestHandler):
             deal_dir.mkdir(parents=True)
             send_json(self, {"created": safe, "path": str(deal_dir)})
 
+        # ── API: /api/rename ──────────────────────────────────────────────────
+        elif path == "/api/rename":
+            rel_path = body.get("path", "")
+            new_name = body.get("name", "").strip()
+
+            if not rel_path or not new_name:
+                return send_error(self, "path and name required")
+
+            src = BASE_DIR / rel_path
+            if not src.exists():
+                return send_error(self, f"File not found: {rel_path}", 404)
+
+            # Sanitize name — letters, numbers, spaces, hyphens
+            safe = "".join(c if c.isalnum() or c in " _-." else "_" for c in new_name)
+            dest = src.parent / f"{safe}.html"
+
+            if dest.exists() and dest != src:
+                return send_error(self, f"A file named {safe}.html already exists here")
+
+            src.rename(dest)
+            send_json(self, {"renamed": str(dest.relative_to(BASE_DIR))})
+
         # ── API: /api/move-archived ───────────────────────────────────────────
         elif path == "/api/move-archived":
             rel_path    = body.get("path", "")       # e.g. "Business/John_Smith.html"
