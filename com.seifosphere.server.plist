@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.seifosphere.server</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>-c</string>
+        <string>exec /usr/bin/python3 /Users/sizzle/imessage_export_IPHONE/server.py</string>
+    </array>
+
+    <!-- Start at login and restart automatically if it crashes -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/sizzle/imessage_export_IPHONE</string>
+
+    <key>StandardOutPath</key>
+    <string>/Users/sizzle/imessage_export_IPHONE/server.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/sizzle/imessage_export_IPHONE/server_error.log</string>
+</dict>
+</plist>
